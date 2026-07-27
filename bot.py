@@ -69,7 +69,7 @@ WEBHOOK_SECRET = os.getenv(
 # 不再读取旧的 TRX_ADDRESS，避免旧环境变量覆盖
 # =========================================================
 
-ENERGY_ORDER_ADDRESS = "TUCiiyuz95gc7UMFefq8gU5RXyg1QT5kcw"
+ENERGY_ORDER_ADDRESS = "TLihmgj5j2PtafZvVSi1A2FHYw7fp3eXhe"
 PACKAGE_PAYMENT_ADDRESS = "TEGdS6nyPqPdN6GW7YnmqVPHWRffffffff"
 EXCHANGE_AUTO_ADDRESS = "TNVt5b3stodrAihbKJBNiYGp2Z11111111"
 MEMBERSHIP_PAYMENT_ADDRESS = "TVVJrXXdqVswUQBWTkHK6gbPaaJSB7UcFx"
