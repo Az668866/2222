@@ -738,28 +738,28 @@ async def handle_text(
             return
 
         if text == MENU_PACKAGE:
-            await send_photo_with_caption(
-                update=update,
-                caption=PACKAGE_TEXT,
-                reply_markup=package_keyboard(),
-            )
-            return
+    await update.message.reply_text(
+        PACKAGE_TEXT,
+        parse_mode=ParseMode.HTML,
+        reply_markup=package_keyboard(),
+    )
+    return
 
         if text == MENU_ENERGY:
-            await send_photo_with_caption(
-                update=update,
-                caption=ENERGY_TEXT,
-                reply_markup=energy_keyboard(),
-            )
-            return
+    await update.message.reply_text(
+        ENERGY_TEXT,
+        parse_mode=ParseMode.HTML,
+        reply_markup=energy_keyboard(),
+    )
+    return
 
         if text == MENU_EXCHANGE:
-            await send_photo_with_caption(
-                update=update,
-                caption=TRX_EXCHANGE_TEXT,
-                reply_markup=exchange_keyboard(),
-            )
-            return
+    await update.message.reply_text(
+        TRX_EXCHANGE_TEXT,
+        parse_mode=ParseMode.HTML,
+        reply_markup=exchange_keyboard(),
+    )
+    return
 
         if text == MENU_MEMBERSHIP:
             await update.message.reply_text(
