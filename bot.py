@@ -2,6 +2,7 @@ import hashlib
 import html
 import logging
 import os
+from pathlib import Path
 
 from telegram import (
     CopyTextButton,
@@ -22,42 +23,98 @@ from telegram.ext import (
 
 
 # =========================================================
-# 配置区域：通过环境变量设置
+# 机器人版本
 # =========================================================
 
-# 敏感信息不要写进代码或提交到 GitHub。
-# 本地运行时可在终端设置环境变量；Render 中在 Environment 页面设置。
+BOT_VERSION = "2026-07-27-v5-final"
+
+
+# =========================================================
+# Render 环境变量
+# =========================================================
+
+# Bot Token 必须放在 Render Environment 中
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
-# 以下配置可以在 Render 环境变量中覆盖。
 WEBSITE_URL = os.getenv(
     "WEBSITE_URL",
     "https://gxtrx88.xyz/?id=888",
 ).strip()
+
 CUSTOMER_SERVICE_USERNAME = os.getenv(
     "CUSTOMER_SERVICE_USERNAME",
     "TRX88898",
 ).strip().lstrip("@")
-TRX_ADDRESS = os.getenv(
-    "TRX_ADDRESS",
-    "TVVJrXXdqVswUQBWTkHK6gbPaaJSB7UcFx",
-).strip()
 
-# Render Web Service 使用 webhook；本地默认使用 polling。
+
+# =========================================================
+# 固定收款地址
+# 不再读取旧的 TRX_ADDRESS 环境变量
+# =========================================================
+
+# 能量租用地址
+ENERGY_ORDER_ADDRESS = "TUCiiyuz95gc7UMFefq8gU5RXyg1QT5kcw"
+
+# 笔数套餐 USDT 支付地址
+PACKAGE_PAYMENT_ADDRESS = "TEGdS6nyPqPdN6GW7YnmqVPHWRffffffff"
+
+# TRX 闪兑自动兑换地址
+EXCHANGE_AUTO_ADDRESS = "TNVt5b3stodrAihbKJBNiYGp2Z11111111"
+
+# 会员付款地址
+MEMBERSHIP_PAYMENT_ADDRESS = "TVVJrXXdqVswUQBWTkHK6gbPaaJSB7UcFx"
+
+
+# =========================================================
+# 图片配置
+# 图片必须和 bot.py 放在同一个目录
+# 文件名必须是 menu_banner.png
+# =========================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+MENU_BANNER_PATH = BASE_DIR / "menu_banner.png"
+
+
+# =========================================================
+# Render Webhook 配置
+# =========================================================
+
 DEPLOY_MODE = os.getenv("DEPLOY_MODE", "").strip().lower()
+
 WEBHOOK_BASE_URL = os.getenv(
     "WEBHOOK_BASE_URL",
     os.getenv("RENDER_EXTERNAL_URL", ""),
 ).strip().rstrip("/")
-WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "telegram-webhook").strip().strip("/")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "").strip()
+
+WEBHOOK_PATH = os.getenv(
+    "WEBHOOK_PATH",
+    "telegram-webhook",
+).strip().strip("/")
+
+WEBHOOK_SECRET = os.getenv(
+    "WEBHOOK_SECRET",
+    "",
+).strip()
+
+
+# =========================================================
+# 日志
+# =========================================================
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+
+logger = logging.getLogger(__name__)
 
 
 # =========================================================
 # 固定文案
 # =========================================================
 
-PROMO_LINE = "🎁 限时活动注册就送88 TRX！"
+PROMO_LINE = "🎁 限时活动注册就送88 TRX！点击下面👇领取活动~"
+
 
 WELCOME_TEXT = """
 🎉 欢迎使用 TRX 能量租赁机器人！
@@ -66,7 +123,7 @@ WELCOME_TEXT = """
 
 🚀 主要功能：
 ✏️ 笔数套餐
-⚡️ 能量租赁
+⚡️ 能量租用
 ✅ TRX闪兑
 💎 代开会员
 ❓ 帮助说明
@@ -77,8 +134,14 @@ WELCOME_TEXT = """
 🎁 限时活动注册就送88 TRX！
 """.strip()
 
-PACKAGE_TEXT = """
-【✏️笔数套餐】：
+
+PACKAGE_TEXT = f"""
+👉每笔单价：1 USDT
+✅支付地址：
+<code>{PACKAGE_PAYMENT_ADDRESS}</code>
+
+👆请点击下方复制按钮，直接转入USDT，如转入100USDT，可获得100次免费转账次数
+
 🔶赠送350带宽到地址，从此不再消耗0.35TRX
 🔶按笔数计费的能量租用方式。
 🔶每笔发送131K能量，对方地址无U也是扣一笔
@@ -90,36 +153,63 @@ PACKAGE_TEXT = """
 🔥【真】【假】笔数套餐科普：
 ✅无论65K或者131K（对方地址是否有U），只扣一笔！
 
+👆最少10笔起购买
+👆最大可获得500笔免费转账次数
+
 ❗️带宽兜底保护：
 地址没有TRX并且没有带宽情况下，给地址发送350带宽或者0.35TRX，防止转账卡壳，地址从此不再预留TRX。
 
 👆满足以上条件，才可称之为：【✏️笔数套餐】
 
-🎁 限时活动注册就送88 TRX！
+🎁 限时活动注册就送88 TRX！点击下面👇领取活动~
 """.strip()
+
 
 ENERGY_TEXT = f"""
-【⚡️能量闪租】
-🔸转账  1.5 TRX = 1 笔能量
-🔸转账  3 TRX = 2 笔能量
+能量租用：
+往下单地址转入相应的TRX
 
-单笔3 TRX，以此类推，最大5笔。
-1. 向无U地址转账，需要双倍能量。
-2. 请在1小时内转账，否则过期回收。
+➖➖➖➖➖➖➖➖➖➖➖
+转0.4TRX = 1笔转账对面有U
+转0.8TRX = 2笔转账对面有U
+（无U地址或者交易所翻倍）
 
-🔸闪租能量收款地址：
-<code>{TRX_ADDRESS}</code>
+➖➖➖➖➖➖➖➖➖➖➖
+闪租能量下单地址：
+<code>{ENERGY_ORDER_ADDRESS}</code>
 
-📋 请点击下方“复制收款地址”按钮即可复制。
-➖➖➖➖➖➖➖➖➖
-以下按钮可以选择其他能量租用模式。
+👆请点击下方按钮复制地址
 
-温馨提醒：
-闪租地址保存到地址本时要打上醒目标识，以免转账转错！
-下方按钮揭秘低于成本价出租能量、依靠客户转错USDT获利的风险。
+➖➖➖➖➖➖➖➖➖➖➖
+1小时内有效，到时间能量自动回收
 
-🎁 限时活动注册就送88 TRX！
+注明：如出现不返能量，需转一笔2.5TRX
+
+🎁 限时活动注册就送88 TRX！点击下面👇领取活动~
 """.strip()
+
+
+TRX_EXCHANGE_TEXT = f"""
+2.96 TRX
+U换TRX 1USDT起换❗️
+
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+自动兑换地址：
+<code>{EXCHANGE_AUTO_ADDRESS}</code>
+
+👆请点击下方按钮复制地址
+
+〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️〰️
+请不要使用交易所转账❗️
+切记切记，否则丢失自负❗️
+转账即兑，全自动返，等值1U起换❗️
+
+请点击下方按钮进入兑换网站。
+进入网站后，请先核对网址、兑换数量、手续费和收款地址，再确认操作。
+
+🎁 限时活动注册就送88 TRX！点击下面👇领取活动~
+""".strip()
+
 
 MEMBERSHIP_TEXT = """
 🌟星星价格：0.02 U/个
@@ -135,25 +225,18 @@ MEMBERSHIP_TEXT = """
 🎁 限时活动注册就送88 TRX！
 """.strip()
 
-TRX_EXCHANGE_TEXT = """
-【✅ TRX闪兑】
-
-请点击下方按钮进入兑换网站。
-进入网站后，请先核对网址、兑换数量、手续费和收款地址，再确认操作。
-
-🎁 限时活动注册就送88 TRX！
-""".strip()
 
 HELP_TEXT = """
 【❓帮助说明】
 
 1. 点击“✏️笔数套餐”查看按笔计费说明。
-2. 点击“⚡️能量租赁”查看闪租价格和收款地址。
+2. 点击“⚡️能量租用”查看闪租价格和下单地址。
 3. 点击“💎代开会员”，选择会员时长后输入需要开通的用户名。
-4. 点击“✅ TRX闪兑”进入兑换网站。
-5. 遇到订单或到账问题，请点击“💬联系客服”。
+4. 点击“✅ TRX闪兑”查看自动兑换地址。
+5. 遇到订单、付款或到账问题，请点击“💬联系客服”。
 
 发送 /cancel 可以取消正在填写的会员订单。
+发送 /version 可以查看当前机器人版本。
 
 ⚠️ 链上转账通常无法撤回，付款前请仔细核对币种、网络和地址。
 
@@ -167,11 +250,12 @@ HELP_TEXT = """
 
 MENU_PROMO = "🔴 限时活动｜注册即送88TRX 🔴"
 MENU_PACKAGE = "✏️ 笔数套餐"
-MENU_ENERGY = "⚡️ 能量租赁"
+MENU_ENERGY = "⚡️ 能量租用"
 MENU_EXCHANGE = "✅ TRX闪兑"
 MENU_MEMBERSHIP = "💎 代开会员"
 MENU_HELP = "❓ 帮助说明"
 MENU_SERVICE = "💬 联系客服"
+
 
 MENU_ROWS = [
     [MENU_PROMO],
@@ -179,33 +263,35 @@ MENU_ROWS = [
     [MENU_MEMBERSHIP, MENU_HELP, MENU_SERVICE],
 ]
 
-MENU_BUTTONS = {button for row in MENU_ROWS for button in row}
+
+MENU_BUTTONS = {
+    button
+    for row in MENU_ROWS
+    for button in row
+}
+
 
 MEMBERSHIP_PLANS = {
-    "3": {"name": "3个月会员", "price": "10 U"},
-    "6": {"name": "6个月会员", "price": "15 U"},
-    "12": {"name": "1年会员", "price": "30 U"},
+    "3": {
+        "name": "3个月会员",
+        "price": "10 U",
+    },
+    "6": {
+        "name": "6个月会员",
+        "price": "15 U",
+    },
+    "12": {
+        "name": "1年会员",
+        "price": "30 U",
+    },
 }
 
 
 # =========================================================
-# 日志
+# 底部菜单
 # =========================================================
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
-
-
-# =========================================================
-# 键盘
-# =========================================================
-
 
 def main_menu() -> ReplyKeyboardMarkup:
-    """底部主菜单。"""
     return ReplyKeyboardMarkup(
         keyboard=MENU_ROWS,
         resize_keyboard=True,
@@ -214,26 +300,81 @@ def main_menu() -> ReplyKeyboardMarkup:
     )
 
 
-def website_keyboard(button_text: str = "🎁 限时活动注册就送88TRX") -> InlineKeyboardMarkup:
-    """打开网站的按钮。"""
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton(text=button_text, url=WEBSITE_URL)]]
-    )
+# =========================================================
+# 内联按钮
+# =========================================================
 
-
-def energy_keyboard() -> InlineKeyboardMarkup:
-    """能量闪租：复制地址和打开网站。"""
+def website_keyboard(
+    button_text: str = "🎁 限时活动注册就送88TRX",
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
-                    text="📋 点击复制闪租收款地址",
-                    copy_text=CopyTextButton(text=TRX_ADDRESS),
+                    text=button_text,
+                    url=WEBSITE_URL,
+                )
+            ]
+        ]
+    )
+
+
+def package_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text="📋 点击复制笔数套餐支付地址",
+                    copy_text=CopyTextButton(
+                        text=PACKAGE_PAYMENT_ADDRESS
+                    ),
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="🔥 查看其他能量模式｜注册送88TRX",
+                    text="🎁 点击领取注册活动",
+                    url=WEBSITE_URL,
+                )
+            ],
+        ]
+    )
+
+
+def energy_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text="📋 点击复制闪租下单地址",
+                    copy_text=CopyTextButton(
+                        text=ENERGY_ORDER_ADDRESS
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🎁 点击领取注册活动",
+                    url=WEBSITE_URL,
+                )
+            ],
+        ]
+    )
+
+
+def exchange_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    text="📋 点击复制自动兑换地址",
+                    copy_text=CopyTextButton(
+                        text=EXCHANGE_AUTO_ADDRESS
+                    ),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="✅ 打开TRX闪兑网站｜注册送88TRX",
                     url=WEBSITE_URL,
                 )
             ],
@@ -242,7 +383,6 @@ def energy_keyboard() -> InlineKeyboardMarkup:
 
 
 def membership_keyboard() -> InlineKeyboardMarkup:
-    """会员套餐按钮。"""
     return InlineKeyboardMarkup(
         [
             [
@@ -273,14 +413,15 @@ def membership_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def payment_keyboard() -> InlineKeyboardMarkup:
-    """会员付款：复制地址、联系客户和打开网站。"""
+def membership_payment_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(
                     text="📋 点击复制会员收款地址",
-                    copy_text=CopyTextButton(text=TRX_ADDRESS),
+                    copy_text=CopyTextButton(
+                        text=MEMBERSHIP_PAYMENT_ADDRESS
+                    ),
                 )
             ],
             [
@@ -300,7 +441,6 @@ def payment_keyboard() -> InlineKeyboardMarkup:
 
 
 def service_keyboard() -> InlineKeyboardMarkup:
-    """联系客服和网站按钮。"""
     return InlineKeyboardMarkup(
         [
             [
@@ -320,29 +460,101 @@ def service_keyboard() -> InlineKeyboardMarkup:
 
 
 # =========================================================
-# 命令处理
+# 发送图片和文字
+# 图片、文字、按钮会在同一条 Telegram 消息中
 # =========================================================
 
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """处理 /start。"""
+async def send_photo_with_caption(
+    update: Update,
+    caption: str,
+    reply_markup: InlineKeyboardMarkup,
+) -> None:
     if not update.message:
         return
 
-    # 开始时清除未完成的会员输入状态
+    if not MENU_BANNER_PATH.exists():
+        await update.message.reply_text(
+            "图片文件 menu_banner.png 不存在。\n"
+            "请把 menu_banner.png 和 bot.py 放在同一个目录。",
+        )
+        return
+
+    try:
+        with MENU_BANNER_PATH.open("rb") as photo_file:
+            await update.message.reply_photo(
+                photo=photo_file,
+                caption=caption,
+                parse_mode=ParseMode.HTML,
+                reply_markup=reply_markup,
+            )
+    except Exception:
+        logger.exception("发送菜单图片失败")
+
+        await update.message.reply_text(
+            "图片发送失败，请检查 menu_banner.png 是否已上传到 GitHub。",
+        )
+
+
+# =========================================================
+# /start
+# =========================================================
+
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    if not update.message:
+        return
+
     context.user_data.pop("membership_plan", None)
 
     user = update.effective_user
-    name = user.first_name if user and user.first_name else "用户"
+
+    if user and user.first_name:
+        name = html.escape(user.first_name)
+    else:
+        name = "用户"
 
     await update.message.reply_text(
-        WELCOME_TEXT.format(name=html.escape(name)),
+        WELCOME_TEXT.format(name=name),
         reply_markup=main_menu(),
     )
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """处理 /help。"""
+# =========================================================
+# /version
+# =========================================================
+
+async def version_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    if not update.message:
+        return
+
+    image_status = (
+        "存在"
+        if MENU_BANNER_PATH.exists()
+        else "不存在"
+    )
+
+    await update.message.reply_text(
+        f"当前版本：{BOT_VERSION}\n\n"
+        f"能量地址：\n{ENERGY_ORDER_ADDRESS}\n\n"
+        f"笔数地址：\n{PACKAGE_PAYMENT_ADDRESS}\n\n"
+        f"闪兑地址：\n{EXCHANGE_AUTO_ADDRESS}\n\n"
+        f"菜单图片：{image_status}"
+    )
+
+
+# =========================================================
+# /help
+# =========================================================
+
+async def help_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
     if not update.message:
         return
 
@@ -352,46 +564,70 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """取消会员用户名输入。"""
+# =========================================================
+# /cancel
+# =========================================================
+
+async def cancel(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
     if not update.message:
         return
 
-    had_pending_order = context.user_data.pop("membership_plan", None) is not None
+    had_pending_order = (
+        context.user_data.pop(
+            "membership_plan",
+            None,
+        )
+        is not None
+    )
 
     if had_pending_order:
         text = "已取消当前会员订单，请重新选择功能。"
     else:
         text = "当前没有需要取消的订单，请点击下方菜单选择功能。"
 
-    await update.message.reply_text(text, reply_markup=main_menu())
+    await update.message.reply_text(
+        text,
+        reply_markup=main_menu(),
+    )
 
 
 # =========================================================
-# 会员按钮和用户名处理
+# 选择会员套餐
 # =========================================================
-
 
 async def select_membership(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    """用户点击会员时长按钮。"""
     query = update.callback_query
+
     if not query:
         return
 
     await query.answer()
 
     callback_data = query.data or ""
-    plan_key = callback_data.split(":", maxsplit=1)[-1]
+    plan_key = callback_data.split(
+        ":",
+        maxsplit=1,
+    )[-1]
+
     plan = MEMBERSHIP_PLANS.get(plan_key)
 
     if not plan:
-        await query.message.reply_text("套餐不存在，请重新选择。")
+        if query.message:
+            await query.message.reply_text(
+                "套餐不存在，请重新选择。"
+            )
         return
 
     context.user_data["membership_plan"] = plan_key
+
+    if not query.message:
+        return
 
     await query.message.reply_text(
         f"✅ 您选择的是：<b>{plan['name']}</b>\n"
@@ -403,29 +639,42 @@ async def select_membership(
     )
 
 
+# =========================================================
+# 接收会员用户名
+# =========================================================
+
 async def receive_membership_username(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     username_text: str,
 ) -> None:
-    """接收用户输入的会员用户名并展示付款信息。"""
-    plan_key = context.user_data.get("membership_plan")
+    if not update.message:
+        return
+
+    plan_key = context.user_data.get(
+        "membership_plan"
+    )
+
     plan = MEMBERSHIP_PLANS.get(plan_key)
 
     if not plan:
         return
 
     username_text = username_text.strip()
+
     if not username_text:
-        await update.message.reply_text("用户名不能为空，请重新输入。")
+        await update.message.reply_text(
+            "用户名不能为空，请重新输入。"
+        )
         return
 
-    # 最多保留100个字符，避免用户发送超长内容刷屏
     username_text = username_text[:100]
     safe_username = html.escape(username_text)
 
-    # 完成后清除等待状态
-    context.user_data.pop("membership_plan", None)
+    context.user_data.pop(
+        "membership_plan",
+        None,
+    )
 
     await update.message.reply_text(
         "【💎会员订单信息】\n\n"
@@ -433,34 +682,46 @@ async def receive_membership_username(
         f"💰 应付金额：<b>{plan['price']}</b>\n"
         f"👤 开通用户名：<code>{safe_username}</code>\n\n"
         "🔸会员收款地址：\n"
-        f"<code>{TRX_ADDRESS}</code>\n\n"
-        "📋 请点击下方“复制会员收款地址”按钮即可复制。\n"
+        f"<code>{MEMBERSHIP_PAYMENT_ADDRESS}</code>\n\n"
+        "📋 请点击下方按钮复制会员收款地址。\n"
         "付款前请再次核对套餐、用户名、币种、网络和收款地址。\n"
         "付款后请联系客服，并提供交易哈希。",
         parse_mode=ParseMode.HTML,
-        reply_markup=payment_keyboard(),
+        reply_markup=membership_payment_keyboard(),
     )
 
 
 # =========================================================
-# 主菜单文本处理
+# 处理底部菜单
 # =========================================================
 
+async def handle_text(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    if not update.message:
+        return
 
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """处理主菜单点击和会员用户名输入。"""
-    if not update.message or not update.message.text:
+    if not update.message.text:
         return
 
     text = update.message.text.strip()
 
-    # 用户点击主菜单时，优先切换功能并取消上一次未完成的会员输入
     if text in MENU_BUTTONS:
-        context.user_data.pop("membership_plan", None)
+        context.user_data.pop(
+            "membership_plan",
+            None,
+        )
+
+        user_id = (
+            update.effective_user.id
+            if update.effective_user
+            else "未知"
+        )
 
         logger.info(
             "用户 %s 点击菜单：%s",
-            update.effective_user.id if update.effective_user else "未知",
+            user_id,
             text,
         )
 
@@ -470,29 +731,33 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 "🎁 注册即送 <b>88TRX</b>！\n\n"
                 "点击下方按钮立即注册领取。",
                 parse_mode=ParseMode.HTML,
-                reply_markup=website_keyboard("🔴 立即注册领取88TRX"),
+                reply_markup=website_keyboard(
+                    "🔴 立即注册领取88TRX"
+                ),
             )
             return
 
         if text == MENU_PACKAGE:
-            await update.message.reply_text(
-                PACKAGE_TEXT,
-                reply_markup=website_keyboard(),
+            await send_photo_with_caption(
+                update=update,
+                caption=PACKAGE_TEXT,
+                reply_markup=package_keyboard(),
             )
             return
 
         if text == MENU_ENERGY:
-            await update.message.reply_text(
-                ENERGY_TEXT,
-                parse_mode=ParseMode.HTML,
+            await send_photo_with_caption(
+                update=update,
+                caption=ENERGY_TEXT,
                 reply_markup=energy_keyboard(),
             )
             return
 
         if text == MENU_EXCHANGE:
-            await update.message.reply_text(
-                TRX_EXCHANGE_TEXT,
-                reply_markup=website_keyboard("✅ 打开TRX闪兑网站｜注册送88TRX"),
+            await send_photo_with_caption(
+                update=update,
+                caption=TRX_EXCHANGE_TEXT,
+                reply_markup=exchange_keyboard(),
             )
             return
 
@@ -519,9 +784,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             )
             return
 
-    # 正在等待会员用户名时，把这条普通文本作为用户名处理
     if context.user_data.get("membership_plan"):
-        await receive_membership_username(update, context, text)
+        await receive_membership_username(
+            update=update,
+            context=context,
+            username_text=text,
+        )
         return
 
     await update.message.reply_text(
@@ -530,40 +798,92 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """记录错误。"""
-    logger.exception("机器人处理消息时出现错误", exc_info=context.error)
+# =========================================================
+# 错误处理
+# =========================================================
+
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    logger.error(
+        "机器人处理消息时出现错误",
+        exc_info=(
+            type(context.error),
+            context.error,
+            context.error.__traceback__,
+        )
+        if context.error
+        else None,
+    )
 
 
 # =========================================================
-# 启动
+# 检查配置
 # =========================================================
-
 
 def validate_config() -> None:
-    """启动前检查必要配置。"""
-    if not BOT_TOKEN or ":" not in BOT_TOKEN:
+    if not BOT_TOKEN:
         raise ValueError(
-            "缺少有效的 BOT_TOKEN。请在本地环境变量或 Render Environment 中设置。"
+            "缺少 BOT_TOKEN，请到 Render Environment 添加。"
         )
 
-    if not WEBSITE_URL.startswith(("https://", "http://")):
-        raise ValueError("WEBSITE_URL 必须以 https:// 或 http:// 开头。")
+    if ":" not in BOT_TOKEN:
+        raise ValueError(
+            "BOT_TOKEN 格式错误，请检查 BotFather Token。"
+        )
+
+    if not WEBSITE_URL.startswith(
+        ("https://", "http://")
+    ):
+        raise ValueError(
+            "WEBSITE_URL 必须以 https:// 或 http:// 开头。"
+        )
 
     if not CUSTOMER_SERVICE_USERNAME:
-        raise ValueError("CUSTOMER_SERVICE_USERNAME 不能为空。")
+        raise ValueError(
+            "CUSTOMER_SERVICE_USERNAME 不能为空。"
+        )
 
-    if not TRX_ADDRESS:
-        raise ValueError("TRX_ADDRESS 不能为空。")
 
+# =========================================================
+# 创建机器人
+# =========================================================
 
 def build_application() -> Application:
-    """创建并配置 Telegram Application。"""
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .build()
+    )
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("cancel", cancel))
+    application.add_handler(
+        CommandHandler(
+            "start",
+            start,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "version",
+            version_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "help",
+            help_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "cancel",
+            cancel,
+        )
+    )
 
     application.add_handler(
         CallbackQueryHandler(
@@ -579,34 +899,75 @@ def build_application() -> Application:
         )
     )
 
-    application.add_error_handler(error_handler)
+    application.add_error_handler(
+        error_handler
+    )
+
     return application
 
 
-def run_webhook(application: Application) -> None:
-    """在 Render Web Service 上使用 webhook。"""
+# =========================================================
+# Render Webhook 模式
+# =========================================================
+
+def run_webhook(
+    application: Application,
+) -> None:
     if not WEBHOOK_BASE_URL:
         raise ValueError(
-            "Webhook 模式缺少 WEBHOOK_BASE_URL。Render 会自动提供 RENDER_EXTERNAL_URL。"
+            "Webhook 模式缺少 WEBHOOK_BASE_URL。"
         )
 
     if not WEBHOOK_PATH:
-        raise ValueError("WEBHOOK_PATH 不能为空。")
+        raise ValueError(
+            "WEBHOOK_PATH 不能为空。"
+        )
 
     if not WEBHOOK_SECRET:
-        raise ValueError("Webhook 模式必须设置 WEBHOOK_SECRET。")
+        raise ValueError(
+            "Webhook 模式必须设置 WEBHOOK_SECRET。"
+        )
 
-    # Telegram 要求 secret_token 只能使用字母、数字、下划线和连字符。
-    # Render 自动生成的是 Base64 字符串，因此先转换成固定的 SHA-256 十六进制值。
-    telegram_secret = hashlib.sha256(WEBHOOK_SECRET.encode("utf-8")).hexdigest()
+    telegram_secret = hashlib.sha256(
+        WEBHOOK_SECRET.encode("utf-8")
+    ).hexdigest()
 
     try:
-        port = int(os.getenv("PORT", "10000"))
+        port = int(
+            os.getenv(
+                "PORT",
+                "10000",
+            )
+        )
     except ValueError as exc:
-        raise ValueError("PORT 必须是整数。") from exc
+        raise ValueError(
+            "PORT 必须是整数。"
+        ) from exc
 
-    webhook_url = f"{WEBHOOK_BASE_URL}/{WEBHOOK_PATH}"
-    logger.info("以 webhook 模式启动：%s", webhook_url)
+    webhook_url = (
+        f"{WEBHOOK_BASE_URL}/"
+        f"{WEBHOOK_PATH}"
+    )
+
+    logger.info(
+        "机器人代码版本：%s",
+        BOT_VERSION,
+    )
+
+    logger.info(
+        "菜单图片路径：%s",
+        MENU_BANNER_PATH,
+    )
+
+    logger.info(
+        "菜单图片是否存在：%s",
+        MENU_BANNER_PATH.exists(),
+    )
+
+    logger.info(
+        "以 webhook 模式启动：%s",
+        webhook_url,
+    )
 
     application.run_webhook(
         listen="0.0.0.0",
@@ -619,30 +980,56 @@ def run_webhook(application: Application) -> None:
     )
 
 
-def run_polling(application: Application) -> None:
-    """本地或 Render Background Worker 使用长轮询。"""
-    logger.info("以 polling 模式启动。")
+# =========================================================
+# 本地 Polling 模式
+# =========================================================
+
+def run_polling(
+    application: Application,
+) -> None:
+    logger.info(
+        "机器人代码版本：%s",
+        BOT_VERSION,
+    )
+
+    logger.info(
+        "以 polling 模式启动。"
+    )
+
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
         drop_pending_updates=True,
     )
 
 
+# =========================================================
+# 启动
+# =========================================================
+
 def run() -> None:
-    """根据运行环境选择 webhook 或 polling。"""
     validate_config()
+
     application = build_application()
 
     mode = DEPLOY_MODE
+
     if not mode:
-        mode = "webhook" if os.getenv("RENDER_SERVICE_TYPE") == "web" else "polling"
+        if os.getenv("RENDER_SERVICE_TYPE") == "web":
+            mode = "webhook"
+        else:
+            mode = "polling"
 
     if mode == "webhook":
         run_webhook(application)
-    elif mode == "polling":
+        return
+
+    if mode == "polling":
         run_polling(application)
-    else:
-        raise ValueError("DEPLOY_MODE 只能是 webhook 或 polling。")
+        return
+
+    raise ValueError(
+        "DEPLOY_MODE 只能填写 webhook 或 polling。"
+    )
 
 
 if __name__ == "__main__":
