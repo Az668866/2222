@@ -2,6 +2,7 @@ import hashlib
 import html
 import logging
 import os
+from pathlib import Path
 
 from telegram import (
     CopyTextButton,
@@ -17,6 +18,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    PicklePersistence,
     filters,
 )
 
@@ -25,7 +27,7 @@ from telegram.ext import (
 # 机器人版本
 # =========================================================
 
-BOT_VERSION = "2026-07-27-v6-text-only"
+BOT_VERSION = "2026-07-28-v7-render-paid-stable"
 
 
 # =========================================================
@@ -63,6 +65,13 @@ WEBHOOK_SECRET = os.getenv(
     "",
 ).strip()
 
+# 可选：在 Render 付费服务挂载 Persistent Disk 后设置
+# PERSISTENCE_PATH=/var/data/bot_state.pkl
+PERSISTENCE_PATH = os.getenv(
+    "PERSISTENCE_PATH",
+    "",
+).strip()
+
 
 # =========================================================
 # 固定地址
@@ -84,6 +93,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 # =========================================================
@@ -428,6 +438,7 @@ async def start(
 
     await update.message.reply_text(
         WELCOME_TEXT.format(name=name),
+        parse_mode=ParseMode.HTML,
         reply_markup=main_menu(),
     )
 
@@ -444,6 +455,26 @@ async def version_command(
         f"能量地址：\n{ENERGY_ORDER_ADDRESS}\n\n"
         f"笔数地址：\n{PACKAGE_PAYMENT_ADDRESS}\n\n"
         f"闪兑地址：\n{EXCHANGE_AUTO_ADDRESS}"
+    )
+
+
+async def status_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    if not update.message:
+        return
+
+    webhook_info = await context.bot.get_webhook_info()
+    mode = DEPLOY_MODE or ("webhook" if WEBHOOK_BASE_URL else "polling")
+
+    last_error = webhook_info.last_error_message or "无"
+    await update.message.reply_text(
+        f"运行状态：正常\n"
+        f"版本：{BOT_VERSION}\n"
+        f"模式：{mode}\n"
+        f"Webhook 待处理：{webhook_info.pending_update_count}\n"
+        f"Webhook 最近错误：{last_error}"
     )
 
 
@@ -572,6 +603,13 @@ async def handle_text(
 
     text = update.message.text.strip()
 
+    logger.info(
+        "收到文本 update_id=%s user=%s text=%r",
+        update.update_id,
+        update.effective_user.id if update.effective_user else "未知",
+        text[:200],
+    )
+
     if text in MENU_BUTTONS:
         context.user_data.pop("membership_plan", None)
 
@@ -662,8 +700,11 @@ async def error_handler(
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
     if context.error:
+        update_id = getattr(update, "update_id", None)
         logger.error(
-            "机器人处理消息时出现错误",
+            "机器人处理消息时出现错误 update_id=%s error=%r",
+            update_id,
+            context.error,
             exc_info=(
                 type(context.error),
                 context.error,
@@ -691,6 +732,12 @@ def validate_config() -> None:
     if not CUSTOMER_SERVICE_USERNAME:
         raise ValueError("CUSTOMER_SERVICE_USERNAME 不能为空。")
 
+    if DEPLOY_MODE == "webhook" and WEBHOOK_BASE_URL and not WEBHOOK_BASE_URL.startswith("https://"):
+        raise ValueError("WEBHOOK_BASE_URL 必须以 https:// 开头。")
+
+    if PERSISTENCE_PATH:
+        Path(PERSISTENCE_PATH).parent.mkdir(parents=True, exist_ok=True)
+
 
 # =========================================================
 # 创建 Application
@@ -698,10 +745,28 @@ def validate_config() -> None:
 
 
 def build_application() -> Application:
-    application = Application.builder().token(BOT_TOKEN).build()
+    builder = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .connect_timeout(15)
+        .read_timeout(30)
+        .write_timeout(30)
+        .pool_timeout(15)
+    )
+
+    if PERSISTENCE_PATH:
+        builder = builder.persistence(
+            PicklePersistence(
+                filepath=PERSISTENCE_PATH,
+                update_interval=10,
+            )
+        )
+
+    application = builder.build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("version", version_command))
+    application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("cancel", cancel))
 
@@ -762,7 +827,8 @@ def run_webhook(application: Application) -> None:
         webhook_url=webhook_url,
         secret_token=telegram_secret,
         allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=True,
+        drop_pending_updates=False,
+        bootstrap_retries=5,
     )
 
 
@@ -774,10 +840,12 @@ def run_webhook(application: Application) -> None:
 def run_polling(application: Application) -> None:
     logger.info("机器人代码版本：%s", BOT_VERSION)
     logger.info("以 polling 模式启动。")
+    logger.info("持久化状态：%s", PERSISTENCE_PATH or "未启用")
 
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=True,
+        drop_pending_updates=False,
+        bootstrap_retries=5,
     )
 
 
