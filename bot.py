@@ -27,7 +27,7 @@ from telegram.ext import (
 # 机器人版本
 # =========================================================
 
-BOT_VERSION = "2026-07-28-v8-menu-banner"
+BOT_VERSION = "2026-07-28-v7-render-paid-stable"
 
 
 # =========================================================
@@ -71,15 +71,6 @@ PERSISTENCE_PATH = os.getenv(
     "PERSISTENCE_PATH",
     "",
 ).strip()
-
-
-# =========================================================
-# 菜单图片
-# menu_banner.png 必须与 bot.py 放在仓库同一目录
-# =========================================================
-
-BASE_DIR = Path(__file__).resolve().parent
-MENU_BANNER_PATH = BASE_DIR / "menu_banner.png"
 
 
 # =========================================================
@@ -429,28 +420,6 @@ def service_keyboard() -> InlineKeyboardMarkup:
 
 
 # =========================================================
-# 统一发送“图片 + 文字 + 按钮”
-# Telegram 会把 caption 和图片作为同一条消息发送
-# =========================================================
-
-
-async def reply_with_banner(
-    message,
-    caption: str,
-    *,
-    parse_mode=None,
-    reply_markup=None,
-) -> None:
-    with MENU_BANNER_PATH.open("rb") as photo:
-        await message.reply_photo(
-            photo=photo,
-            caption=caption,
-            parse_mode=parse_mode,
-            reply_markup=reply_markup,
-        )
-
-
-# =========================================================
 # 命令处理
 # =========================================================
 
@@ -467,7 +436,7 @@ async def start(
     user = update.effective_user
     name = html.escape(user.first_name) if user and user.first_name else "用户"
 
-    await reply_with_banner(update.message,
+    await update.message.reply_text(
         WELCOME_TEXT.format(name=name),
         parse_mode=ParseMode.HTML,
         reply_markup=main_menu(),
@@ -481,7 +450,7 @@ async def version_command(
     if not update.message:
         return
 
-    await reply_with_banner(update.message,
+    await update.message.reply_text(
         f"当前版本：{BOT_VERSION}\n\n"
         f"能量地址：\n{ENERGY_ORDER_ADDRESS}\n\n"
         f"笔数地址：\n{PACKAGE_PAYMENT_ADDRESS}\n\n"
@@ -500,7 +469,7 @@ async def status_command(
     mode = DEPLOY_MODE or ("webhook" if WEBHOOK_BASE_URL else "polling")
 
     last_error = webhook_info.last_error_message or "无"
-    await reply_with_banner(update.message,
+    await update.message.reply_text(
         f"运行状态：正常\n"
         f"版本：{BOT_VERSION}\n"
         f"模式：{mode}\n"
@@ -516,7 +485,7 @@ async def help_command(
     if not update.message:
         return
 
-    await reply_with_banner(update.message,
+    await update.message.reply_text(
         HELP_TEXT,
         reply_markup=website_keyboard(),
     )
@@ -536,7 +505,7 @@ async def cancel(
     else:
         text = "当前没有需要取消的订单，请点击下方菜单选择功能。"
 
-    await reply_with_banner(update.message,
+    await update.message.reply_text(
         text,
         reply_markup=main_menu(),
     )
@@ -564,7 +533,7 @@ async def select_membership(
 
     if not plan:
         if query.message:
-            await reply_with_banner(query.message,"套餐不存在，请重新选择。")
+            await query.message.reply_text("套餐不存在，请重新选择。")
         return
 
     context.user_data["membership_plan"] = plan_key
@@ -572,7 +541,7 @@ async def select_membership(
     if not query.message:
         return
 
-    await reply_with_banner(query.message,
+    await query.message.reply_text(
         f"✅ 您选择的是：<b>{plan['name']}</b>\n"
         f"💰 价格：<b>{plan['price']}</b>\n\n"
         "请直接发送需要开通会员的 Telegram 用户名。\n"
@@ -599,13 +568,13 @@ async def receive_membership_username(
     username_text = username_text.strip()
 
     if not username_text:
-        await reply_with_banner(update.message,"用户名不能为空，请重新输入。")
+        await update.message.reply_text("用户名不能为空，请重新输入。")
         return
 
     safe_username = html.escape(username_text[:100])
     context.user_data.pop("membership_plan", None)
 
-    await reply_with_banner(update.message,
+    await update.message.reply_text(
         "【💎会员订单信息】\n\n"
         f"✅ 已选择：<b>{plan['name']}</b>\n"
         f"💰 应付金额：<b>{plan['price']}</b>\n"
@@ -651,7 +620,7 @@ async def handle_text(
         )
 
         if text == MENU_PROMO:
-            await reply_with_banner(update.message,
+            await update.message.reply_text(
                 "🔴 <b>限时活动</b> 🔴\n\n"
                 "🎁 注册即送 <b>88TRX</b>！\n\n"
                 "点击下方按钮立即注册领取。",
@@ -661,7 +630,7 @@ async def handle_text(
             return
 
         if text == MENU_PACKAGE:
-            await reply_with_banner(update.message,
+            await update.message.reply_text(
                 PACKAGE_TEXT,
                 parse_mode=ParseMode.HTML,
                 reply_markup=package_keyboard(),
@@ -669,7 +638,7 @@ async def handle_text(
             return
 
         if text in (MENU_ENERGY, MENU_ENERGY_OLD):
-            await reply_with_banner(update.message,
+            await update.message.reply_text(
                 ENERGY_TEXT,
                 parse_mode=ParseMode.HTML,
                 reply_markup=energy_keyboard(),
@@ -677,7 +646,7 @@ async def handle_text(
             return
 
         if text == MENU_EXCHANGE:
-            await reply_with_banner(update.message,
+            await update.message.reply_text(
                 TRX_EXCHANGE_TEXT,
                 parse_mode=ParseMode.HTML,
                 reply_markup=exchange_keyboard(),
@@ -685,21 +654,21 @@ async def handle_text(
             return
 
         if text == MENU_MEMBERSHIP:
-            await reply_with_banner(update.message,
+            await update.message.reply_text(
                 MEMBERSHIP_TEXT,
                 reply_markup=membership_keyboard(),
             )
             return
 
         if text == MENU_HELP:
-            await reply_with_banner(update.message,
+            await update.message.reply_text(
                 HELP_TEXT,
                 reply_markup=website_keyboard(),
             )
             return
 
         if text == MENU_SERVICE:
-            await reply_with_banner(update.message,
+            await update.message.reply_text(
                 "遇到订单、付款或到账问题，请点击下方按钮联系客服。\n\n"
                 f"客服用户名：@{CUSTOMER_SERVICE_USERNAME}\n\n"
                 f"{PROMO_LINE}",
@@ -715,7 +684,7 @@ async def handle_text(
         )
         return
 
-    await reply_with_banner(update.message,
+    await update.message.reply_text(
         "请点击下方菜单选择功能。",
         reply_markup=main_menu(),
     )
@@ -768,12 +737,6 @@ def validate_config() -> None:
 
     if PERSISTENCE_PATH:
         Path(PERSISTENCE_PATH).parent.mkdir(parents=True, exist_ok=True)
-
-    if not MENU_BANNER_PATH.is_file():
-        raise FileNotFoundError(
-            f"找不到菜单图片：{MENU_BANNER_PATH}。"
-            "请把 menu_banner.png 与 bot.py 放在仓库同一目录。"
-        )
 
 
 # =========================================================
