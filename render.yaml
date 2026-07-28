@@ -1,20 +1,17 @@
 services:
-  - type: web
-    name: trx-telegram-bot
+  - type: worker
+    name: telegram-bot-paid
     runtime: python
-    plan: free
+    plan: starter
+    numInstances: 1
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
     envVars:
+      - key: DEPLOY_MODE
+        value: polling
       - key: BOT_TOKEN
         sync: false
-      - key: WEBHOOK_SECRET
-        generateValue: true
-      - key: DEPLOY_MODE
-        value: webhook
       - key: WEBSITE_URL
-        value: https://gxtrx88.xyz/?id=888
+        sync: false
       - key: CUSTOMER_SERVICE_USERNAME
-        value: TRX88898
-      - key: TRX_ADDRESS
-        value: TVVJrXXdqVswUQBWTkHK6gbPaaJSB7UcFx
+        sync: false
